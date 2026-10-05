@@ -7,7 +7,7 @@ import {
   House,
   LockKeyhole,
   LockKeyholeOpen,
-  MapPin,
+  Activity,
   Search,
   Smartphone,
   Star,
@@ -22,6 +22,10 @@ import RoomStatusNote from "../components/RoomStatusNote.jsx";
 import useDoorAccess from "../components/useDoorAccess.js";
 
 const STATUS_REFRESH_MS = 15000; // lock / unlock status refreshes automatically
+
+// Date + time label for a real lock / unlock event
+const fmtEventTime = (d) =>
+  d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 // How a resident gets into the room and how the room's electricity follows the lock
 const ACCESS_STEPS = [
@@ -136,7 +140,107 @@ export default function Home() {
   // Room lock state comes from the booking (lock_status: "locked" | "unlocked"). If it is missing, treat the room as locked.
   const isLocked = keyData ? keyData.lock_status !== "unlocked" : true;
 
-  // Demo door state shared by the "Try it" door and the Track preview.
+  // Lock / unlock the room from the app (uses the digital key)
+  // A 4 to 6 digit passkey is needed every time. The first time, the resident sets it.
+  const [toggling, setToggling] = useState(false);
+  const [doorError, setDoorError] = useState("");
+  const [hasPin, setHasPin] = useState(false);
+  const [pinMode, setPinMode] = useState(null); // null | "set" | "enter"
+  const [pin, setPin] = useState("");
+  const [pin2, setPin2] = useState("");
+  const [oldPin, setOldPin] = useState("");
+  const [pinMsg, setPinMsg] = useState("");
+
+  // mode: "set" (create + unlock), "setup" (create only), "change" (old + new), "enter" (lock / unlock)
+  const openPinBox = (mode) => {
+    setDoorError("");
+    setPinMsg("");
+    setPin("");
+    setPin2("");
+    setOldPin("");
+    setPinMode(mode);
+  };
+  const closePinBox = () => {
+    setPinMode(null);
+    setPin("");
+    setPin2("");
+    setOldPin("");
+    setDoorError("");
+  };
+
+  const submitPin = async () => {
+    if (!keyData || toggling) return;
+    if (!/^\d{4,6}$/.test(pin)) {
+      setDoorError("Passkey must be 4 to 6 digits.");
+      return;
+    }
+    if (pinMode !== "enter" && pin !== pin2) {
+      setDoorError("The two passkeys do not match.");
+      return;
+    }
+    if (pinMode === "change" && !/^\d{4,6}$/.test(oldPin)) {
+      setDoorError("Enter your current passkey (4 to 6 digits).");
+      return;
+    }
+    setToggling(true);
+    setDoorError("");
+    try {
+      if (pinMode === "set" || pinMode === "setup") {
+        await api.post(`/door/${keyData.id}/pin`, { pin });
+        setHasPin(true);
+      }
+      if (pinMode === "change") {
+        await api.post(`/door/${keyData.id}/pin`, { pin, current_pin: oldPin });
+      }
+      if (pinMode === "set" || pinMode === "enter") {
+        const next = isLocked ? "unlocked" : "locked";
+        await api.post(`/door/${keyData.id}/toggle`, { lock_status: next, pin });
+        setKeyData((prev) => (prev ? { ...prev, lock_status: next } : prev));
+      }
+      closePinBox();
+      if (pinMode === "setup") setPinMsg("Passkey saved. You can now lock and unlock from the app.");
+      if (pinMode === "change") setPinMsg("Passkey changed.");
+    } catch (err) {
+      setDoorError(err.response?.data?.error || "Could not change the door. Try again.");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  // REAL door history comes from the backend (door_events), so it stays after a reload.
+  const [realLog, setRealLog] = useState([]);
+  useEffect(() => {
+    if (!keyData) {
+      setRealLog([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get(`/door/${keyData.id}/history`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setHasPin(!!data.has_pin);
+        setRealLog(
+          (data.events || []).slice(0, 6).map((e) => ({
+            id: e.id,
+            lock_status: e.lock_status,
+            label: fmtEventTime(new Date(e.at)),
+            by:
+              e.source === "app"
+                ? "Digital key (app)"
+                : e.source === "owner"
+                ? "PG owner"
+                : "Key card at door",
+          }))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [keyData]);
+
+  // DEMO door state shared by the "Try it" door and the Track preview.
   // Frontend only: no backend or database calls.
   const door = useDoorAccess();
   const [showTrack, setShowTrack] = useState(false);
@@ -146,7 +250,7 @@ export default function Home() {
     <div>
       <section className="hero">
         <div className="container hero-grid">
-          <div>
+          <div style={{ alignSelf: "start" }}>
             <div className="eyebrow">Private-room PGs &amp; PG organizer</div>
             <h1>Your own room, perfectly organized.</h1>
             <p className="lead">
@@ -162,22 +266,21 @@ export default function Home() {
               For students, professionals and everyone in between.
             </p>
 
-            {/* Opens the room activity preview (status + lock/unlock history) */}
+            {/* Opens the room activity preview: Demo section always, Real section only after a real lock / unlock */}
             <div style={{ marginTop: 14 }}>
               <button type="button" className="pill ghost small" style={{ display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => setShowTrack(true)}>
-                <MapPin size={16} aria-hidden="true" /> Track room activity
+                <Activity size={16} aria-hidden="true" /> Track room activity
               </button>
             </div>
             <AccessDemoSection
               open={showTrack}
               onClose={() => setShowTrack(false)}
-              locked={door.locked}
-              live={door.live}
-              rows={door.rows}
+              demo={door.demo}
+              real={keyData ? { locked: isLocked, rows: realLog } : undefined}
             />
           </div>
 
-          <div className="keytag">
+          <div className="keytag" style={{ alignSelf: "start" }}>
             <div className="keytag-hole" />
 
             {!user ? (
@@ -241,6 +344,99 @@ export default function Home() {
                     </strong>
                   </div>
                 </div>
+
+                {!pinMode ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    <button
+                      type="button"
+                      className="pill small"
+                      onClick={() => openPinBox(hasPin ? "enter" : "set")}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                    >
+                      {isLocked ? <LockKeyholeOpen size={16} aria-hidden="true" /> : <LockKeyhole size={16} aria-hidden="true" />}
+                      {isLocked ? "Unlock with app" : "Lock with app"}
+                    </button>
+                    <button
+                      type="button"
+                      className="pill small ghost"
+                      onClick={() => openPinBox(hasPin ? "change" : "setup")}
+                    >
+                      {hasPin ? "Change passkey" : "Set passkey"}
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      padding: 12,
+                      borderRadius: 10,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                    }}
+                  >
+                    <div style={{ color: "#C7CAE0", fontSize: 13, marginBottom: 8 }}>
+                      {pinMode === "set" &&
+                        "Create a 4 to 6 digit passkey. You will need it every time you lock or unlock from the app."}
+                      {pinMode === "setup" &&
+                        "Create a 4 to 6 digit passkey. You will need it every time you lock or unlock from the app."}
+                      {pinMode === "change" && "Enter your current passkey, then choose a new one."}
+                      {pinMode === "enter" && "Enter your passkey to " + (isLocked ? "unlock" : "lock") + " the room."}
+                    </div>
+                    {pinMode === "change" && (
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={6}
+                        placeholder="Current passkey"
+                        value={oldPin}
+                        onChange={(e) => setOldPin(e.target.value.replace(/\D/g, ""))}
+                        style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8 }}
+                      />
+                    )}
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={6}
+                      placeholder={pinMode === "enter" ? "Passkey" : "New passkey"}
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                      style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8 }}
+                    />
+                    {pinMode !== "enter" && (
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={6}
+                        placeholder="Repeat passkey"
+                        value={pin2}
+                        onChange={(e) => setPin2(e.target.value.replace(/\D/g, ""))}
+                        style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 8 }}
+                      />
+                    )}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" className="pill small" onClick={submitPin} disabled={toggling}>
+                        {toggling
+                          ? "Please wait…"
+                          : pinMode === "set"
+                          ? "Save passkey & " + (isLocked ? "unlock" : "lock")
+                          : pinMode === "setup"
+                          ? "Save passkey"
+                          : pinMode === "change"
+                          ? "Change passkey"
+                          : isLocked
+                          ? "Unlock"
+                          : "Lock"}
+                      </button>
+                      <button type="button" className="pill small ghost" onClick={closePinBox} disabled={toggling}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {doorError && <div style={{ color: "#E67E22", fontSize: 13, marginBottom: 10 }}>{doorError}</div>}
+                {pinMsg && !pinMode && <div style={{ color: "#00B894", fontSize: 13, marginBottom: 10 }}>{pinMsg}</div>}
 
                 <div style={{ color: "#C7CAE0", fontSize: 13, lineHeight: 1.5 }}>
                   Issued the moment your owner approved your booking — scan your card at the door to unlock or lock, no physical key handover needed.

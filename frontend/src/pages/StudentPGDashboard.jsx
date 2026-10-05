@@ -4,7 +4,7 @@ import api from "../api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { SinglePGMap } from "../components/MapView.jsx";
 import RatingStars from "../components/RatingStars.jsx";
-import { ADDON_PRICES, KITCHEN_MIN_RENT, GUEST_MAX_NIGHTS, GUEST_RATE } from "../components/pricing.js";
+import { ADDON_PRICES, KITCHEN_MIN_RENT, GUEST_RATE } from "../components/pricing.js";
 import { BASIC_KITCHEN_APPLIANCES, KITCHEN_EXTRAS } from "../components/kitchenInfo.js";
 
 const CATEGORY_LABELS = {
@@ -23,6 +23,7 @@ const BASIC_ROOM_ITEMS = [
   { id: "fan", icon: "🌀", label: "Ceiling Fan", detail: "Fan with regulator" },
   { id: "wardrobe", icon: "🚪", label: "Wardrobe", detail: "Cupboard with a lock for clothes and belongings" },
   { id: "light", icon: "💡", label: "Lights & Power Sockets", detail: "LED light with charging points near the bed and table" },
+  { id: "bathroom", icon: "🚿", label: "Personal Bathroom", detail: "Private attached bathroom with shower and toilet, only for your use" },
 ];
 
 // Meal sources: own food (self-arranged) + PG Kitchen + cloud kitchens (sample data - replace with API data later)
@@ -125,6 +126,28 @@ const SECURITY_TERMS = [
   "Any deduction will be shared with you with the reason before the refund is made.",
 ];
 
+// Guest stay rules (sample values - owner should finalise these)
+const GUEST_FREE_NIGHTS_PER_MONTH = 2; // up to 2 nights a month at the per-night price
+
+// Rooms a guest can be given if they don't stay in the resident's room
+const GUEST_OTHER_ROOMS = [
+  { id: "std", label: "Standard Room", rent: 6000 },
+  { id: "ac", label: "AC Room", rent: 9000 },
+  { id: "premium", label: "Premium Room (with kitchen)", rent: 12000 },
+];
+
+const GUEST_TERMS = [
+  "A guest can stay for a maximum of 2 nights in a month at the per-night guest charge.",
+  "If a guest needs to stay for more than 2 nights in a month, the charge for the whole month applies, not per night.",
+  "Same room: the guest stays in your room. The charge depends on your room's rent, including AC or cooler if you have chosen it.",
+  "Other room: the guest gets a separate room. The charge depends on the rent of the room type you choose, and availability is confirmed by the owner.",
+  "Every guest stay needs the owner's approval before arrival.",
+  "The guest must carry a valid ID and follow all PG rules. You are responsible for your guest.",
+  "Visitors are not allowed in the rooms of other residents, and quiet hours must be followed.",
+  "The owner can cancel a guest stay if PG rules are broken, and the charge is not refunded in that case.",
+  "Your guest does not pay a separate security deposit. It is covered by your own security deposit as the resident. Any damage caused by your guest to the room, furniture, appliances or PG property will be charged to you and can be deducted from your security deposit.",
+];
+
 const formatDate = (dateStr) => {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
@@ -168,7 +191,9 @@ export default function StudentPGDashboard() {
   const [showWeek, setShowWeek] = useState(false);
 
   // Guest stay states
-  const [guestForm, setGuestForm] = useState({ name: "", phone: "", date: "", nights: 1 });
+  const [guestForm, setGuestForm] = useState({ name: "", phone: "", date: "", nights: 1, stayType: "same", otherRoom: "std" });
+  const [guestTermsAccepted, setGuestTermsAccepted] = useState(false);
+  const [showGuestTerms, setShowGuestTerms] = useState(false);
   const [guestRequests, setGuestRequests] = useState([]);
   const [guestMsg, setGuestMsg] = useState("");
   const [cleaningSlot, setCleaningSlot] = useState({ type: "schedule", date: "", time: "10:00 AM" });
@@ -300,12 +325,25 @@ export default function StudentPGDashboard() {
     setCart({});
   };
 
-  // Guest charge depends on the room: base rent + AC/Cooler chosen, per day, times GUEST_RATE
-  const guestPerNight = () => {
-    const roomRent = basePrice + (addons.ac ? addonPrices.ac : 0) + (addons.cooler ? addonPrices.cooler : 0);
-    return Math.round((roomRent / 30) * GUEST_RATE);
+  // Rent of the room the guest will use: your room (with AC/Cooler) or the chosen other room
+  const guestRoomRent = () => {
+    if (guestForm.stayType === "other") {
+      const r = GUEST_OTHER_ROOMS.find((x) => x.id === guestForm.otherRoom);
+      return r ? r.rent : 0;
+    }
+    return basePrice + (addons.ac ? addonPrices.ac : 0) + (addons.cooler ? addonPrices.cooler : 0);
   };
-  const guestTotal = () => guestPerNight() * Number(guestForm.nights);
+  const guestPerNight = () => Math.round((guestRoomRent() / 30) * GUEST_RATE);
+
+  // Nights already requested in the same month as the chosen arrival date
+  const guestNightsUsedThisMonth = () => {
+    if (!guestForm.date) return 0;
+    const month = guestForm.date.slice(0, 7);
+    return guestRequests.filter((g) => g.date.slice(0, 7) === month).reduce((s, g) => s + g.nights, 0);
+  };
+  // More than 2 nights in a month = whole month charge
+  const guestIsMonthly = () => Number(guestForm.nights) + guestNightsUsedThisMonth() > GUEST_FREE_NIGHTS_PER_MONTH;
+  const guestTotal = () => (guestIsMonthly() ? guestRoomRent() : guestPerNight() * Number(guestForm.nights));
 
   const submitGuestRequest = (e) => {
     e.preventDefault();
@@ -313,11 +351,20 @@ export default function StudentPGDashboard() {
       setGuestMsg("Please enter the guest name and arrival date.");
       return;
     }
+    if (!guestTermsAccepted) {
+      setGuestMsg("Please accept the guest stay terms to continue.");
+      return;
+    }
+    const roomLabel =
+      guestForm.stayType === "other"
+        ? GUEST_OTHER_ROOMS.find((x) => x.id === guestForm.otherRoom)?.label || "Other room"
+        : "Your room";
     setGuestRequests((prev) => [
       ...prev,
-      { ...guestForm, nights: Number(guestForm.nights), total: guestTotal(), status: "Pending approval" },
+      { ...guestForm, nights: Number(guestForm.nights), total: guestTotal(), monthly: guestIsMonthly(), roomLabel, status: "Pending approval" },
     ]);
-    setGuestForm({ name: "", phone: "", date: "", nights: 1 });
+    setGuestForm({ name: "", phone: "", date: "", nights: 1, stayType: "same", otherRoom: "std" });
+    setGuestTermsAccepted(false);
     setGuestMsg("Guest stay request sent to the owner for approval.");
   };
 
@@ -456,6 +503,14 @@ export default function StudentPGDashboard() {
               <div>
                 <strong style={{ display: "block", fontSize: 14, color: "var(--teal)" }}>No electricity bills</strong>
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>Electricity is included in your rent. Use fan, lights, charger and appliances without a separate bill.</span>
+              </div>
+            </div>
+            {/* Highlight: food is not included, resident chooses in Meal Preferences */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid #e67e22", background: "rgba(230,126,34,0.08)" }}>
+              <span style={{ fontSize: 22 }}>🍽️</span>
+              <div>
+                <strong style={{ display: "block", fontSize: 14, color: "#e67e22" }}>Food is not included</strong>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>Meals are not part of your rent. You can choose any food option you like in Meal Preferences: own food, PG Kitchen, or a cloud kitchen.</span>
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -852,14 +907,55 @@ export default function StudentPGDashboard() {
             </div>
           </div>
 
-          {/* Guest Stay (1-2 nights) */}
+          {/* Guest Stay */}
           <div className="card card-pad" style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 18, marginBottom: 6 }}>Guest Stay</h3>
             <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 14 }}>
-              Host a guest in your room for up to {GUEST_MAX_NIGHTS} nights. The charge depends on your room's rent.
+              Guests can stay up to {GUEST_FREE_NIGHTS_PER_MONTH} nights a month at a per-night price. For more than {GUEST_FREE_NIGHTS_PER_MONTH} nights, the whole month's charge applies.
             </p>
 
             <form onSubmit={submitGuestRequest}>
+              <div style={{ fontSize: 13, marginBottom: 8 }}>Where will your guest stay?</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {[
+                  { id: "same", label: "🛏️ Same room", note: "Stays in your room" },
+                  { id: "other", label: "🚪 Other room", note: "Separate room for the guest" },
+                ].map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setGuestForm({ ...guestForm, stayType: o.id })}
+                    style={{
+                      flex: 1,
+                      minWidth: 160,
+                      textAlign: "left",
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: guestForm.stayType === o.id ? "2px solid var(--teal)" : "1px solid var(--border)",
+                      background: guestForm.stayType === o.id ? "rgba(0,184,148,0.08)" : "transparent",
+                      color: "var(--text)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <strong style={{ display: "block", fontSize: 13 }}>{o.label}</strong>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>{o.note}</span>
+                  </button>
+                ))}
+              </div>
+
+              {guestForm.stayType === "other" && (
+                <select
+                  className="input"
+                  style={{ width: "100%", marginBottom: 12 }}
+                  value={guestForm.otherRoom}
+                  onChange={(e) => setGuestForm({ ...guestForm, otherRoom: e.target.value })}
+                >
+                  {GUEST_OTHER_ROOMS.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label} (₹{r.rent}/mo)</option>
+                  ))}
+                </select>
+              )}
+
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
                 <input
                   className="input"
@@ -887,16 +983,40 @@ export default function StudentPGDashboard() {
                 >
                   <option value={1}>1 night</option>
                   <option value={2}>2 nights</option>
+                  <option value={3}>More than 2 nights (full month)</option>
                 </select>
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontSize: 13, color: "var(--muted)" }}>₹{guestPerNight()} per night × {guestForm.nights}</div>
+                  <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                    {guestIsMonthly()
+                      ? `More than ${GUEST_FREE_NIGHTS_PER_MONTH} nights this month: full month charge`
+                      : `₹${guestPerNight()} per night × ${guestForm.nights}`}
+                  </div>
                   <div style={{ fontSize: 18, fontWeight: "bold", color: "var(--teal)" }}>Guest charge: ₹{guestTotal()}</div>
                 </div>
                 <button className="pill">Request Guest Stay</button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowGuestTerms(!showGuestTerms)}
+                style={{ marginTop: 12, background: "transparent", border: "none", color: "var(--teal)", cursor: "pointer", fontSize: 13, padding: 0 }}
+              >
+                {showGuestTerms ? "Hide guest stay terms" : "Read guest stay terms & conditions"}
+              </button>
+
+              {showGuestTerms && (
+                <ol style={{ margin: "10px 0 0", paddingLeft: 18, color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
+                  {GUEST_TERMS.map((t, idx) => <li key={idx} style={{ marginBottom: 4 }}>{t}</li>)}
+                </ol>
+              )}
+
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12, cursor: "pointer", fontSize: 13 }}>
+                <input type="checkbox" checked={guestTermsAccepted} onChange={(e) => setGuestTermsAccepted(e.target.checked)} style={{ marginTop: 3 }} />
+                <span>I have read and agree to the guest stay terms. I am responsible for any damage by my guest.</span>
+              </label>
             </form>
 
             {guestMsg && <p style={{ fontSize: 13, color: "var(--teal)", marginTop: 10 }}>{guestMsg}</p>}
@@ -906,10 +1026,10 @@ export default function StudentPGDashboard() {
                 {guestRequests.map((g, idx) => (
                   <div
                     key={idx}
-                    style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "8px 12px", border: "1px solid var(--border)", borderRadius: 8 }}
+                    style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, padding: "8px 12px", border: "1px solid var(--border)", borderRadius: 8 }}
                   >
                     <span>
-                      <strong>{g.name}</strong> · {formatDate(g.date)} · {g.nights} night{g.nights > 1 ? "s" : ""}
+                      <strong>{g.name}</strong> · {formatDate(g.date)} · {g.monthly ? "Full month" : `${g.nights} night${g.nights > 1 ? "s" : ""}`} · {g.roomLabel}
                     </span>
                     <span>₹{g.total} · {g.status}</span>
                   </div>

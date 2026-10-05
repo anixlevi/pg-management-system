@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { SinglePGMap } from "../components/MapView.jsx";
 import RatingStars from "../components/RatingStars.jsx";
 import StarRatingInput from "../components/StarRatingInput.jsx";
-import { KITCHEN_MIN_RENT } from "../components/pricing.js";
+import { ADDON_PRICES, KITCHEN_MIN_RENT } from "../components/pricing.js";
 import { BASIC_KITCHEN_APPLIANCES, KITCHEN_EXTRAS } from "../components/kitchenInfo.js";
 
 const CRITERIA = [
@@ -25,6 +25,37 @@ const CATEGORY_LABELS = {
   garden: "Garden / Outdoor",
   exterior: "Exterior",
 };
+
+// Basic room appliances & furniture: included in every room at no extra charge
+// (keep this list the same as BASIC_ROOM_ITEMS in StudentPGDashboard.jsx)
+const BASIC_ROOM_ITEMS = [
+  { id: "bed", icon: "🛏️", label: "Bed with Mattress", detail: "Single bed with a mattress and pillow" },
+  { id: "table", icon: "📚", label: "Study Table", detail: "Table with a small shelf for books and a laptop" },
+  { id: "chair", icon: "🪑", label: "Chair", detail: "Study chair with back support" },
+  { id: "fan", icon: "🌀", label: "Ceiling Fan", detail: "Fan with regulator" },
+  { id: "wardrobe", icon: "🚪", label: "Wardrobe", detail: "Cupboard with a lock for clothes and belongings" },
+  { id: "light", icon: "💡", label: "Lights & Power Sockets", detail: "LED light with charging points near the bed and table" },
+  { id: "bathroom", icon: "🚿", label: "Personal Bathroom", detail: "Private attached bathroom with shower and toilet, only for your use" },
+];
+
+// Guest stay policy summary (keep in line with GUEST_TERMS in StudentPGDashboard.jsx)
+const GUEST_FREE_NIGHTS_PER_MONTH = 2;
+const GUEST_POLICY = [
+  `A guest can stay up to ${GUEST_FREE_NIGHTS_PER_MONTH} nights in a month at a reasonable per-night charge.`,
+  `If a guest needs more than ${GUEST_FREE_NIGHTS_PER_MONTH} nights in a month, the charge for the whole month applies.`,
+  "Same room: the guest stays in your room, and the charge depends on your room's rent.",
+  "Other room: the guest gets a separate room, and the charge depends on that room's rent.",
+  "Every guest stay needs the owner's approval before arrival.",
+  "Your guest does not pay a separate security deposit. It is covered by your own deposit, and any damage by your guest is charged to you.",
+];
+
+// Security deposit summary (keep in line with SECURITY_TERMS in StudentPGDashboard.jsx)
+const SECURITY_SUMMARY = [
+  "One-time deposit equal to one month's base room rent, collected only with your first rent payment.",
+  "Fully refundable when you vacate and return the digital key, within 7 to 10 working days after checkout and room inspection.",
+  "Deductions only for damage beyond normal wear and tear, unpaid rent or dues, and unpaid add-on charges.",
+  "No interest is paid on the deposit.",
+];
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "—";
@@ -174,9 +205,12 @@ export default function PGDetails() {
   // Kitchen is included only in PGs priced above KITCHEN_MIN_RENT
   const kitchenAvailable = Number(pg.price) > KITCHEN_MIN_RENT;
 
+  // Food is not part of the rent, so it is not listed as an amenity. Electricity is always included in rent.
   const amenities = [
-    pg.wifi && "WiFi", pg.food && "Food", pg.laundry && "Laundry",
+    pg.wifi && "WiFi", pg.laundry && "Laundry",
     pg.ac && "AC", pg.parking && "Parking", pg.power_backup && "Power backup",
+    "Electricity included",
+    "Personal bathroom",
     kitchenAvailable && "Kitchen included",
   ].filter(Boolean);
 
@@ -216,6 +250,57 @@ export default function PGDetails() {
             <p><strong>Available from:</strong> {formatDate(pg.available_from)}</p>
           </div>
 
+          {/* Basic room items: included in every room */}
+          <div className="card card-pad" style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 4 }}>Included in your room</h3>
+            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 14 }}>
+              Basic furniture and appliances that come with every room at no extra charge.
+            </p>
+
+            {/* Highlight: electricity is included in rent for every room */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid var(--teal)", background: "rgba(0,184,148,0.08)" }}>
+              <span style={{ fontSize: 22 }}>⚡</span>
+              <div>
+                <strong style={{ display: "block", fontSize: 14, color: "var(--teal)" }}>No electricity bills</strong>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>Electricity is included in your rent. Use fan, lights, charger and appliances without a separate bill.</span>
+              </div>
+            </div>
+
+            {/* Highlight: food is not included, resident chooses in Meal Preferences */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid #e67e22", background: "rgba(230,126,34,0.08)" }}>
+              <span style={{ fontSize: 22 }}>🍽️</span>
+              <div>
+                <strong style={{ display: "block", fontSize: 14, color: "#e67e22" }}>Food is not included</strong>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>Meals are not part of your rent. You can choose any food option you like in Meal Preferences: own food, PG Kitchen, or a cloud kitchen.</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {BASIC_ROOM_ITEMS.map((item) => (
+                <div key={item.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
+                  <span>{item.icon}</span>
+                  <span>
+                    <strong>{item.label}</strong>
+                    <span style={{ display: "block", fontSize: 12, color: "var(--muted)" }}>{item.detail}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Optional add-ons (monthly) */}
+          <div className="card card-pad" style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 4 }}>Optional add-ons</h3>
+            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 14 }}>
+              Customise your room after booking. You can choose either an AC or a cooler, not both.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div className="criteria-row" style={{ fontSize: 14 }}><span>Air Conditioner</span><strong>+₹{ADDON_PRICES.ac}/mo</strong></div>
+              <div className="criteria-row" style={{ fontSize: 14 }}><span>Air Cooler</span><strong>+₹{ADDON_PRICES.cooler}/mo</strong></div>
+              <div className="criteria-row" style={{ fontSize: 14 }}><span>Personal Laundry Service</span><strong>+₹{ADDON_PRICES.laundry}/mo</strong></div>
+            </div>
+          </div>
+
           {/* Kitchen: included in PGs priced above KITCHEN_MIN_RENT, premium extras are monthly add-ons */}
           {kitchenAvailable && (
             <div className="card card-pad" style={{ marginBottom: 20 }}>
@@ -249,10 +334,14 @@ export default function PGDetails() {
             </div>
           )}
 
+          {/* Food: not included in rent, resident chooses */}
           <div className="card card-pad" style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 16, marginBottom: 10 }}>Food</h3>
-            <p><strong>Meals provided:</strong> {pg.food_included ? "Yes" : "No"}</p>
-            <p><strong>Meal type:</strong> {pg.food_type || "Veg / Non-veg both"}</p>
+            <p><strong>Included in rent:</strong> No</p>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>
+              You choose how you want your meals after booking, in Meal Preferences: arrange your own food, eat from the PG Kitchen, or order from a cloud kitchen, per meal or on a weekly or monthly plan. Nothing is compulsory.
+            </p>
+            <p style={{ marginTop: 10 }}><strong>Diets supported:</strong> Veg, Non-veg and Jain</p>
             <p><strong>Mess timing:</strong> {pg.mess_timing || "8–10 AM, 1–3 PM, 8–10 PM"}</p>
           </div>
 
@@ -261,9 +350,31 @@ export default function PGDetails() {
             <p><strong>WiFi:</strong> {pg.wifi ? `Available — ${pg.wifi_speed || "up to 100 Mbps"}` : "Not available"}</p>
             <p><strong>Water supply:</strong> {pg.water_supply || "24x7 supply, RO purified"}</p>
             <p><strong>Electricity backup:</strong> {pg.electricity_backup ? "Available (inverter)" : "No backup"}</p>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>
-              {pg.electricity_included ? "Included in rent" : "Billed separately"}
+            <p style={{ fontSize: 13, color: "var(--teal)" }}>
+              ⚡ Electricity is included in rent. No separate electricity bill.
             </p>
+          </div>
+
+          {/* Guest stay policy */}
+          <div className="card card-pad" style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 4 }}>Guest stay policy</h3>
+            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>
+              Residents can host guests in the same room or in another room. You can request a guest stay from your dashboard after booking.
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 13, lineHeight: 1.6 }}>
+              {GUEST_POLICY.map((t, idx) => <li key={idx} style={{ marginBottom: 4 }}>{t}</li>)}
+            </ul>
+          </div>
+
+          {/* Security deposit summary */}
+          <div className="card card-pad" style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 4 }}>🔐 Security deposit</h3>
+            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>
+              Refundable deposit of ₹{pg.price}, paid once with your first rent payment.
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 13, lineHeight: 1.6 }}>
+              {SECURITY_SUMMARY.map((t, idx) => <li key={idx} style={{ marginBottom: 4 }}>{t}</li>)}
+            </ul>
           </div>
 
           <div className="card card-pad" style={{ marginBottom: 20 }}>

@@ -7,6 +7,7 @@ import pgRoutes from "./routes/pgs.js";
 import ratingRoutes from "./routes/ratings.js";
 import bookingRoutes from "./routes/bookings.js";
 import chatbotRoutes from "./routes/chatbot.js";
+import doorRoutes from "./routes/Door.js";
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ app.use("/api/pgs", pgRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/door", doorRoutes);
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 5000;

@@ -14,14 +14,22 @@ import {
   CheckCircle2,
   ClipboardList,
   House,
+  DoorOpen,
+  LockKeyhole,
+  LockKeyholeOpen,
 } from "lucide-react";
 import api from "../api.js";
 import RatingStars from "../components/RatingStars.jsx";
+
+const DOOR_REFRESH_MS = 15000;
 
 export default function OwnerDashboard() {
   const [pgs, setPgs] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [tab, setTab] = useState("listings");
+
+  const [doorRooms, setDoorRooms] = useState([]);
+  const [doorEvents, setDoorEvents] = useState([]);
 
   const load = async () => {
     const [p, b] = await Promise.all([
@@ -32,13 +40,49 @@ export default function OwnerDashboard() {
     setBookings(b.data.bookings);
   };
 
+  const loadDoor = () =>
+    api
+      .get("/door/owner/events")
+      .then(({ data }) => {
+        setDoorRooms(data.rooms || []);
+        setDoorEvents(data.events || []);
+      })
+      .catch(() => {});
+
   useEffect(() => {
     load();
   }, []);
 
+  // Door status refreshes by itself while the dashboard is open
+  useEffect(() => {
+    loadDoor();
+    const t = setInterval(loadDoor, DOOR_REFRESH_MS);
+    return () => clearInterval(t);
+  }, []);
+
+  // Owner locks / unlocks a resident's room
+  const [busyRoom, setBusyRoom] = useState(null);
+  const [doorError, setDoorError] = useState("");
+  const toggleRoom = async (bookingId, currentlyLocked) => {
+    if (busyRoom) return;
+    setBusyRoom(bookingId);
+    setDoorError("");
+    try {
+      await api.post(`/door/owner/${bookingId}/toggle`, {
+        lock_status: currentlyLocked ? "unlocked" : "locked",
+      });
+      await loadDoor();
+    } catch (err) {
+      setDoorError(err.response?.data?.error || "Could not change the door. Try again.");
+    } finally {
+      setBusyRoom(null);
+    }
+  };
+
   const updateStatus = async (id, status) => {
     await api.put(`/bookings/${id}/status`, { status });
     load();
+    loadDoor();
   };
 
   const getPgImage = (pg) =>
@@ -59,7 +103,7 @@ export default function OwnerDashboard() {
         </Link>
       </div>
 
-      <div className="role-toggle" style={{ maxWidth: 360, marginBottom: 24 }}>
+      <div className="role-toggle" style={{ maxWidth: 560, marginBottom: 24 }}>
         <button
           className={tab === "listings" ? "active" : ""}
           onClick={() => setTab("listings")}
@@ -75,6 +119,14 @@ export default function OwnerDashboard() {
         >
           <CalendarCheck size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
           Booking requests
+        </button>
+        <button
+          className={tab === "door" ? "active" : ""}
+          onClick={() => setTab("door")}
+          type="button"
+        >
+          <DoorOpen size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
+          Door activity
         </button>
       </div>
 
@@ -216,6 +268,111 @@ export default function OwnerDashboard() {
               </tbody>
             </table>
           </div>
+        ))}
+
+      {tab === "door" &&
+        (doorRooms.length === 0 ? (
+          <div
+            className="badge-empty"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+          >
+            <DoorOpen size={20} strokeWidth={1.8} />
+            No digital keys issued yet. Approve a booking first.
+          </div>
+        ) : (
+          <>
+            <h3 style={{ fontSize: 18, marginBottom: 10 }}>Rooms right now</h3>
+            {doorError && <div style={{ color: "#E67E22", fontSize: 13, marginBottom: 10 }}>{doorError}</div>}
+            <div style={{ overflowX: "auto", marginBottom: 28 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Resident</th>
+                    <th>PG</th>
+                    <th>Room</th>
+                    <th>Electricity</th>
+                    <th>Control</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {doorRooms.map((r) => {
+                    const info = bookings.find((b) => b.id === r.booking_id);
+                    const locked = r.lock_status !== "unlocked";
+                    const color = locked ? "#E67E22" : "#00B894";
+                    return (
+                      <tr key={r.booking_id}>
+                        <td>{info?.student_name || `Booking #${r.booking_id}`}</td>
+                        <td>{info?.pg_name || "—"}</td>
+                        <td style={{ color, fontWeight: 600 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            {locked ? <LockKeyhole size={15} /> : <LockKeyholeOpen size={15} />}
+                            {locked ? "Locked" : "Unlocked"}
+                          </span>
+                        </td>
+                        <td style={{ color, fontWeight: 600 }}>{locked ? "Off" : "On"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="pill small ghost"
+                            disabled={busyRoom === r.booking_id}
+                            onClick={() => toggleRoom(r.booking_id, locked)}
+                          >
+                            {busyRoom === r.booking_id ? "Please wait…" : locked ? "Unlock" : "Lock"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <h3 style={{ fontSize: 18, marginBottom: 10 }}>Recent lock / unlock events</h3>
+            {doorEvents.length === 0 ? (
+              <div className="badge-empty">No lock or unlock events yet.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Resident</th>
+                      <th>PG</th>
+                      <th>Event</th>
+                      <th>By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {doorEvents.map((e) => {
+                      const info = bookings.find((b) => b.id === e.booking_id);
+                      return (
+                        <tr key={e.id}>
+                          <td>
+                            {new Date(e.at).toLocaleString([], {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td>{info?.student_name || `Booking #${e.booking_id}`}</td>
+                          <td>{info?.pg_name || "—"}</td>
+                          <td>{e.lock_status === "unlocked" ? "Unlocked" : "Locked"}</td>
+                          <td>
+                            {e.source === "app"
+                              ? "Digital key (app)"
+                              : e.source === "owner"
+                              ? "Owner"
+                              : "Key card at door"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         ))}
     </div>
   );

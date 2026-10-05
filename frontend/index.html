@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='18' fill='%234F46E5'/><path d='M32 14L16 27.5V46C16 47.3807 17.1193 48.5 18.5 48.5H45.5C46.8807 48.5 48 47.3807 48 46V27.5L32 14Z' stroke='%23FFFFFF' stroke-width='4' fill='none'/><circle cx='32' cy='29' r='4.5' fill='%2338BDF8'/><path d='M32 33.5V40.5' stroke='%2338BDF8' stroke-width='4'/></svg>" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Roomly | PG Finder</title>
+    <script>
+      (function() {
+        const saved = localStorage.getItem("roomly-theme");
+        const theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

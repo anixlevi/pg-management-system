@@ -26,6 +26,18 @@ The same React codebase runs as a **website** and as an **Android app** (via Cap
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+
+| Home | Browse PGs | PG details | Mobile menu | Dark mode |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="170" alt="Home screen"> | <img src="docs/screenshots/browse.png" width="170" alt="Browse PGs"> | <img src="docs/screenshots/details.png" width="170" alt="PG details"> | <img src="docs/screenshots/menu.png" width="170" alt="Glass menu"> | <img src="docs/screenshots/dark.png" width="170" alt="Dark mode"> |
+
+</div>
+
+---
+
 ## 🚀 Features
 
 ### 👤 For residents

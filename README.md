@@ -28,6 +28,20 @@ The same React codebase runs as a **website** and as an **Android app** (via Cap
 
 ## 📸 Screenshots
 
+### 💻 Desktop
+
+<div align="center">
+
+| Home | Browse PGs |
+|:---:|:---:|
+| <img src="docs/screenshots/pc-home.png" width="420" alt="Home page (desktop)"> | <img src="docs/screenshots/pc-browse.png" width="420" alt="Browse PGs (desktop)"> |
+| **PG details** | **Dark mode** |
+| <img src="docs/screenshots/pc-details.png" width="420" alt="PG details (desktop)"> | <img src="docs/screenshots/pc-dark.png" width="420" alt="Dark mode (desktop)"> |
+
+</div>
+
+### 📱 Mobile app
+
 <div align="center">
 
 | Home | Browse PGs | PG details | Mobile menu | Dark mode |

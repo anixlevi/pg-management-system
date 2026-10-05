@@ -1,4 +1,4 @@
-# NestIn — PG Management System (Prototype)
+# Roomly — PG Management System (Prototype)
 
 Full-stack web app connecting **students** looking for PG/hostel accommodation with **PG owners**.
 

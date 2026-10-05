@@ -37,6 +37,8 @@ The same React codebase runs as a **website** and as an **Android app** (via Cap
 | <img src="docs/screenshots/pc-home.png" width="420" alt="Home page (desktop)"> | <img src="docs/screenshots/pc-browse.png" width="420" alt="Browse PGs (desktop)"> |
 | **PG details** | **Dark mode** |
 | <img src="docs/screenshots/pc-details.png" width="420" alt="PG details (desktop)"> | <img src="docs/screenshots/pc-dark.png" width="420" alt="Dark mode (desktop)"> |
+| **AI chatbot** | **Login** |
+| <img src="docs/screenshots/pc-chatbot.png" width="420" alt="AI chatbot (desktop)"> | <img src="docs/screenshots/pc-login.png" width="420" alt="Login page (desktop)"> |
 
 </div>
 

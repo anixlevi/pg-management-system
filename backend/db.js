@@ -18,8 +18,10 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('student','owner')),
+  role TEXT NOT NULL CHECK(role IN ('student','owner','kitchen')),
   phone TEXT,
+  kitchen_name TEXT,
+  kitchen_address TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -84,6 +86,41 @@ CREATE TABLE IF NOT EXISTS bookings (
 const pgCols = db.prepare("PRAGMA table_info(pgs)").all().map((c) => c.name);
 if (!pgCols.includes("property_type")) {
   db.exec("ALTER TABLE pgs ADD COLUMN property_type TEXT NOT NULL DEFAULT 'pg'");
+}
+
+// Migration: old databases have users.role limited to ('student','owner').
+// SQLite cannot change a CHECK in place, so the users table is rebuilt once.
+const usersSql =
+  db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get()?.sql || "";
+const roleCheckIsOld = usersSql.includes("'student','owner')") && !usersSql.includes("'kitchen'");
+
+if (roleCheckIsOld) {
+  db.exec("PRAGMA foreign_keys = OFF;");
+  db.exec(`
+    BEGIN;
+    CREATE TABLE users_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('student','owner','kitchen')),
+      phone TEXT,
+      kitchen_name TEXT,
+      kitchen_address TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO users_new (id, name, email, password_hash, role, phone, created_at)
+      SELECT id, name, email, password_hash, role, phone, created_at FROM users;
+    DROP TABLE users;
+    ALTER TABLE users_new RENAME TO users;
+    COMMIT;
+  `);
+  db.exec("PRAGMA foreign_keys = ON;");
+} else {
+  // Table already allows kitchen, just make sure the kitchen columns exist
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+  if (!userCols.includes("kitchen_name")) db.exec("ALTER TABLE users ADD COLUMN kitchen_name TEXT");
+  if (!userCols.includes("kitchen_address")) db.exec("ALTER TABLE users ADD COLUMN kitchen_address TEXT");
 }
 
 export default db;

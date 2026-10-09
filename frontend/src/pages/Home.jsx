@@ -13,6 +13,13 @@ import {
   Star,
   Zap,
   LayoutDashboard,
+  Building2,
+  Users,
+  ClipboardList,
+  Plus,
+  ChefHat,
+  UtensilsCrossed,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../api.js";
@@ -98,8 +105,57 @@ const ACCESS_HELP = [
 
 export default function Home() {
   const { user } = useAuth();
-  // The app is for everyone, not only students: any logged-in user except the PG owner can be a resident
-  const isResident = !!user && user.role !== "owner";
+  const isOwner = !!user && user.role === "owner";
+  // Kitchen owner: matches roles like "kitchen", "kitchen_owner", "mess", "tiffin".
+  // If your role has another name, change this regex.
+  const isKitchen = !!user && /kitchen|mess|tiffin/i.test(user.role || "");
+  // The app is for everyone, not only students: any logged-in user except PG owner / kitchen owner can be a resident
+  const isResident = !!user && !isOwner && !isKitchen;
+
+  /* ---------------------------------------------------------------
+   * OWNER DATA
+   * NOTE: the two endpoints below are guesses. If the owner panel
+   * shows 0 listings, change them to your real owner routes
+   * (check backend/routes/pgs.js and backend/routes/bookings.js).
+   * ------------------------------------------------------------- */
+  const [ownerPgs, setOwnerPgs] = useState([]);
+  const [ownerReqs, setOwnerReqs] = useState([]);
+  const [loadingOwner, setLoadingOwner] = useState(false);
+
+  useEffect(() => {
+    if (!isOwner) {
+      setOwnerPgs([]);
+      setOwnerReqs([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingOwner(true);
+    Promise.allSettled([api.get("/pgs/owner/mine"), api.get("/bookings/owner/mine")]).then(
+      ([pgsRes, reqRes]) => {
+        if (cancelled) return;
+        if (pgsRes.status === "fulfilled") {
+          const d = pgsRes.value.data;
+          setOwnerPgs(d.pgs || (Array.isArray(d) ? d : []));
+        }
+        if (reqRes.status === "fulfilled") {
+          const d = reqRes.value.data;
+          setOwnerReqs(d.bookings || (Array.isArray(d) ? d : []));
+        }
+        setLoadingOwner(false);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [user]); // eslint-disable-line
+
+  const pendingCount = ownerReqs.filter((b) => b.status === "pending").length;
+  const totalRooms = ownerPgs.reduce((s, p) => s + (p.total_rooms || 0), 0);
+  const freeRooms = ownerPgs.reduce((s, p) => s + (p.available_rooms || 0), 0);
+
+  /* ---------------------------------------------------------------
+   * RESIDENT DATA
+   * ------------------------------------------------------------- */
   const [keyData, setKeyData] = useState(null);
   const [loadingKey, setLoadingKey] = useState(false);
   useEffect(() => {
@@ -251,33 +307,67 @@ export default function Home() {
       <section className="hero">
         <div className="container hero-grid">
           <div style={{ alignSelf: "start" }}>
-            <div className="eyebrow">Private-room PGs &amp; PG organizer</div>
-            <h1>Your own room, perfectly organized.</h1>
+            <div className="eyebrow">
+              {isKitchen ? "Kitchen workspace" : isOwner ? "Owner workspace" : "Private-room PGs & PG organizer"}
+            </div>
+            <h1>
+              {isKitchen
+                ? `Welcome back, ${user.name?.split(" ")[0] || "chef"}.`
+                : isOwner
+                ? `Welcome back, ${user.name?.split(" ")[0] || "owner"}.`
+                : "Your own room, perfectly organized."}
+            </h1>
             <p className="lead">
-              Every room on Roomly is for one person only — no sharing, ever. Find a PG from verified
-              owners, read ratings from people who've actually lived there, see exactly where it is on
-              the map, and get a digital key the day you move in.
+              {isKitchen
+                ? "Run your kitchen from one place: manage your menu, see incoming meal orders and serve the residents who depend on you."
+                : isOwner
+                ? "Manage your listings, approve booking requests and keep an eye on room occupancy, all from one place."
+                : "Every room on Roomly is for one person only — no sharing, ever. Find a PG from verified owners, read ratings from people who've actually lived there, see exactly where it is on the map, and get a digital key the day you move in."}
             </p>
             <div className="hero-actions">
-              <Link to="/browse" className="pill">Browse PGs</Link>
-              <Link to="/register" className="pill ghost">List your PG</Link>
+              {isKitchen ? (
+                <>
+                  <Link to="/dashboard" className="pill">Open my dashboard</Link>
+                  <Link to="/services" className="pill ghost">View services</Link>
+                </>
+              ) : isOwner ? (
+                <>
+                  <Link to="/dashboard" className="pill">Open my dashboard</Link>
+                  <Link to="/browse" className="pill ghost">View all PGs</Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/browse" className="pill">Browse PGs</Link>
+                  <Link to="/register" className="pill ghost">List your PG</Link>
+                </>
+              )}
             </div>
-            <p style={{ marginTop: 16, fontSize: 14, color: "var(--muted)" }}>
-              For students, professionals and everyone in between.
-            </p>
 
-            {/* Opens the room activity preview: Demo section always, Real section only after a real lock / unlock */}
-            <div style={{ marginTop: 14 }}>
-              <button type="button" className="pill ghost small" style={{ display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => setShowTrack(true)}>
-                <Activity size={16} aria-hidden="true" /> Track room activity
-              </button>
-            </div>
-            <AccessDemoSection
-              open={showTrack}
-              onClose={() => setShowTrack(false)}
-              demo={door.demo}
-              real={keyData ? { locked: isLocked, rows: realLog } : undefined}
-            />
+            {!isOwner && !isKitchen && (
+              <>
+                <p style={{ marginTop: 16, fontSize: 14, color: "var(--muted)" }}>
+                  For students, professionals and everyone in between.
+                </p>
+
+                {/* Opens the room activity preview: Demo section always, Real section only after a real lock / unlock */}
+                <div style={{ marginTop: 14 }}>
+                  <button
+                    type="button"
+                    className="pill ghost small"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                    onClick={() => setShowTrack(true)}
+                  >
+                    <Activity size={16} aria-hidden="true" /> Track room activity
+                  </button>
+                </div>
+                <AccessDemoSection
+                  open={showTrack}
+                  onClose={() => setShowTrack(false)}
+                  demo={door.demo}
+                  real={keyData ? { locked: isLocked, rows: realLog } : undefined}
+                />
+              </>
+            )}
           </div>
 
           <div className="keytag" style={{ alignSelf: "start" }}>
@@ -287,10 +377,102 @@ export default function Home() {
               <div className="keytag-empty">
                 <p>Log in to see your digital room key</p>
               </div>
-            ) : !isResident ? (
-              <div className="keytag-empty">
-                <p>Digital keys are issued to residents once a booking is approved</p>
-              </div>
+            ) : isKitchen ? (
+              <>
+                <div className="keytag-row">
+                  <div>
+                    <small>Kitchen overview</small>
+                    <div className="keycode">Open for orders</div>
+                  </div>
+                  <span className="keytag-status">
+                    <span className="status-dot" /> Kitchen
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "12px 0" }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #00B894",
+                      background: "rgba(0,184,148,0.12)",
+                    }}
+                  >
+                    <small style={{ display: "block", color: "#C7CAE0", fontSize: 11 }}>Menu</small>
+                    <strong style={{ fontSize: 15, color: "#00B894" }}>Manage items</strong>
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #E67E22",
+                      background: "rgba(230,126,34,0.12)",
+                    }}
+                  >
+                    <small style={{ display: "block", color: "#C7CAE0", fontSize: 11 }}>Orders</small>
+                    <strong style={{ fontSize: 15, color: "#E67E22" }}>View in dashboard</strong>
+                  </div>
+                </div>
+
+                <div style={{ color: "#C7CAE0", fontSize: 13, lineHeight: 1.5 }}>
+                  Keep your menu up to date so residents always see what is on today.
+                </div>
+              </>
+            ) : isOwner ? (
+              <>
+                <div className="keytag-row">
+                  <div>
+                    <small>Owner overview</small>
+                    <div className="keycode">
+                      {loadingOwner
+                        ? "Loading…"
+                        : `${ownerPgs.length} listing${ownerPgs.length === 1 ? "" : "s"}`}
+                    </div>
+                  </div>
+                  <span className="keytag-status">
+                    <span className="status-dot" /> Owner
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "12px 0" }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #00B894",
+                      background: "rgba(0,184,148,0.12)",
+                    }}
+                  >
+                    <small style={{ display: "block", color: "#C7CAE0", fontSize: 11 }}>Rooms free</small>
+                    <strong style={{ fontSize: 18, color: "#00B894" }}>
+                      {freeRooms} / {totalRooms}
+                    </strong>
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #E67E22",
+                      background: "rgba(230,126,34,0.12)",
+                    }}
+                  >
+                    <small style={{ display: "block", color: "#C7CAE0", fontSize: 11 }}>Pending requests</small>
+                    <strong style={{ fontSize: 18, color: "#E67E22" }}>{pendingCount}</strong>
+                  </div>
+                </div>
+
+                <div style={{ color: "#C7CAE0", fontSize: 13, lineHeight: 1.5 }}>
+                  Approve a booking request and the resident instantly gets a digital room key.
+                </div>
+              </>
             ) : loadingKey ? (
               <div className="keytag-empty">
                 <p>Loading your digital key…</p>
@@ -324,8 +506,24 @@ export default function Home() {
                     }}
                   >
                     <small style={{ display: "block", color: "#C7CAE0", fontSize: 11 }}>Room</small>
-                    <strong style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 15, color: isLocked ? "#E67E22" : "#00B894" }}>
-                      {isLocked ? <><LockKeyhole size={16} aria-hidden="true" /> Locked</> : <><LockKeyholeOpen size={16} aria-hidden="true" /> Unlocked</>}
+                    <strong
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 15,
+                        color: isLocked ? "#E67E22" : "#00B894",
+                      }}
+                    >
+                      {isLocked ? (
+                        <>
+                          <LockKeyhole size={16} aria-hidden="true" /> Locked
+                        </>
+                      ) : (
+                        <>
+                          <LockKeyholeOpen size={16} aria-hidden="true" /> Unlocked
+                        </>
+                      )}
                     </strong>
                   </div>
                   <div
@@ -339,8 +537,16 @@ export default function Home() {
                     }}
                   >
                     <small style={{ display: "block", color: "#C7CAE0", fontSize: 11 }}>Electricity</small>
-                    <strong style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 15, color: isLocked ? "#E67E22" : "#00B894" }}>
-                      {isLocked ? <><Zap size={16} aria-hidden="true" /> Off</> : <><Zap size={16} aria-hidden="true" /> On</>}
+                    <strong
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 15,
+                        color: isLocked ? "#E67E22" : "#00B894",
+                      }}
+                    >
+                      <Zap size={16} aria-hidden="true" /> {isLocked ? "Off" : "On"}
                     </strong>
                   </div>
                 </div>
@@ -353,7 +559,11 @@ export default function Home() {
                       onClick={() => openPinBox(hasPin ? "enter" : "set")}
                       style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
                     >
-                      {isLocked ? <LockKeyholeOpen size={16} aria-hidden="true" /> : <LockKeyhole size={16} aria-hidden="true" />}
+                      {isLocked ? (
+                        <LockKeyholeOpen size={16} aria-hidden="true" />
+                      ) : (
+                        <LockKeyhole size={16} aria-hidden="true" />
+                      )}
                       {isLocked ? "Unlock with app" : "Lock with app"}
                     </button>
                     <button
@@ -450,9 +660,7 @@ export default function Home() {
                       <span
                         key={i}
                         className={
-                          keyData.digital_key.charCodeAt(i % keyData.digital_key.length) % 3 !== 0
-                            ? "on"
-                            : ""
+                          keyData.digital_key.charCodeAt(i % keyData.digital_key.length) % 3 !== 0 ? "on" : ""
                         }
                       />
                     ))}
@@ -464,117 +672,220 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How room access works */}
-      <section className="container">
-        <div className="section-title"><h2>How room access works</h2></div>
-        <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16, maxWidth: 680 }}>
-          Your room opens only with your key card. The same scan that locks or unlocks the door also controls the
-          electricity in your room, and the app always shows the current status.
-        </p>
-        <div className="grid cols-4">
-          {ACCESS_STEPS.map((s) => (
-            <div className="card card-pad" key={s.title}>
-              <div className="how-card-icon"><s.icon size={24} strokeWidth={1.8} aria-hidden="true" /></div>
-              <h3 style={{ fontSize: 18, marginBottom: 8 }}>{s.title}</h3>
-              <p style={{ color: "var(--muted)", fontSize: 14 }}>{s.text}</p>
+      {/* OWNER ONLY: summary + own listings */}
+      {isOwner && (
+        <section className="container">
+          <div className="section-title"><h2>Your listings</h2></div>
+
+          <div className="grid cols-3" style={{ marginBottom: 16 }}>
+            <div className="card card-pad">
+              <div className="how-card-icon"><Building2 size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+              <h3 style={{ fontSize: 18 }}>{ownerPgs.length} PGs listed</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14 }}>{totalRooms} rooms in total</p>
             </div>
-          ))}
-        </div>
-
-        {/* Interactive demo: drag the key onto the reader (demo only) */}
-        <div style={{ marginTop: 28 }}>
-          <h3 style={{ fontSize: 20, marginBottom: 6 }}>Try it: unlock your room</h3>
-          <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 14 }}>
-            Drag the digital key onto the door reader. Do it again to lock.
-          </p>
-          <div className="dd-row">
-            <DoorDemo
-              locked={door.locked}
-              onToggle={door.toggle}
-              live={door.live}
-              onPhase={setDoorPhase}
-            />
-            <RoomStatusNote locked={door.locked} phase={doorPhase} />
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            marginTop: 16,
-            padding: "12px 16px",
-            borderRadius: 12,
-            border: "1px solid var(--teal)",
-            background: "rgba(0,184,148,0.08)",
-          }}
-        >
-          <Zap size={22} aria-hidden="true" />
-          <span style={{ fontSize: 14 }}>
-            <strong style={{ color: "var(--teal)" }}>No electricity bills.</strong>{" "}
-            Electricity is included in your rent. It is only switched off while your room is locked.
-          </span>
-        </div>
-      </section>
-
-      {/* Detailed guide: how to access, unlock and lock the room */}
-      <section className="container">
-        <div className="section-title"><h2>How to access your room</h2></div>
-        <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16, maxWidth: 680 }}>
-          You need a key to enter your room. You get two: a physical key card and a digital key card. Use whichever is handy.
-        </p>
-        <div className="grid cols-2">
-          {ACCESS_METHODS.map((m) => (
-            <div className="card card-pad" key={m.title}>
-              <div className="how-card-icon"><m.icon size={24} strokeWidth={1.8} aria-hidden="true" /></div>
-              <h3 style={{ fontSize: 18, marginBottom: 8 }}>{m.title}</h3>
-              <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>
-                {m.points.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
-              </ul>
+            <div className="card card-pad">
+              <div className="how-card-icon"><Users size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+              <h3 style={{ fontSize: 18 }}>{totalRooms - freeRooms} rooms occupied</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14 }}>{freeRooms} still available</p>
             </div>
-          ))}
-        </div>
-
-        {keyData && (
-          <div style={{ marginTop: 14 }}>
-            <Link to={`/digital-key/${keyData.id}`} className="pill">Open my digital key card</Link>
-          </div>
-        )}
-      </section>
-
-      <section className="container">
-        <div className="section-title"><h2>How to unlock and lock your room</h2></div>
-        <div className="grid cols-2">
-          <div className="card card-pad">
-            <div className="how-card-icon"><LockKeyholeOpen size={24} strokeWidth={1.8} aria-hidden="true" /></div>
-            <h3 style={{ fontSize: 18, marginBottom: 4 }}>Unlock the room</h3>
-            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>Door opens and electricity turns on.</p>
-            <ol style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>
-              {UNLOCK_STEPS.map((s, i) => <li key={i} style={{ marginBottom: 4 }}>{s}</li>)}
-            </ol>
-          </div>
-
-          <div className="card card-pad">
-            <div className="how-card-icon"><LockKeyhole size={24} strokeWidth={1.8} aria-hidden="true" /></div>
-            <h3 style={{ fontSize: 18, marginBottom: 4 }}>Lock the room</h3>
-            <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>Door locks and electricity is disconnected.</p>
-            <ol style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>
-              {LOCK_STEPS.map((s, i) => <li key={i} style={{ marginBottom: 4 }}>{s}</li>)}
-            </ol>
-          </div>
-        </div>
-
-        <div className="card card-pad" style={{ marginTop: 16 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 10 }}>Good to know</h3>
-          {ACCESS_HELP.map((h) => (
-            <div key={h.q} style={{ padding: "8px 0", borderTop: "1px solid var(--border)" }}>
-              <strong style={{ fontSize: 14 }}>{h.q}</strong>
-              <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>{h.a}</p>
+            <div className="card card-pad">
+              <div className="how-card-icon"><ClipboardList size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+              <h3 style={{ fontSize: 18 }}>{pendingCount} pending requests</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14 }}>Waiting for your approval</p>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+
+          {ownerPgs.length === 0 && !loadingOwner ? (
+            <div className="card card-pad">
+              <p style={{ color: "var(--muted)" }}>You haven't listed any PG yet.</p>
+              <Link
+                to="/dashboard"
+                className="pill small"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10 }}
+              >
+                <Plus size={16} aria-hidden="true" /> Add your first PG
+              </Link>
+            </div>
+          ) : (
+            <div className="grid cols-3">
+              {ownerPgs.map((p) => (
+                <div className="card card-pad" key={p.id}>
+                  <h3 style={{ fontSize: 18, marginBottom: 4 }}>{p.name}</h3>
+                  <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 8 }}>
+                    {p.locality}, {p.city}
+                  </p>
+                  <p style={{ fontSize: 14 }}>₹{p.price}/month</p>
+                  <p style={{ color: "var(--muted)", fontSize: 13 }}>
+                    {p.available_rooms} of {p.total_rooms} rooms free
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* KITCHEN OWNER ONLY */}
+      {isKitchen && (
+        <section className="container">
+          <div className="section-title"><h2>Your kitchen</h2></div>
+          <div className="grid cols-3">
+            <div className="card card-pad">
+              <div className="how-card-icon"><UtensilsCrossed size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+              <h3 style={{ fontSize: 18, marginBottom: 8 }}>Menu</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14 }}>
+                Add dishes, set prices and mark what is available today.
+              </p>
+              <Link to="/dashboard" className="pill small" style={{ display: "inline-flex", marginTop: 10 }}>
+                Manage menu
+              </Link>
+            </div>
+            <div className="card card-pad">
+              <div className="how-card-icon"><Receipt size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+              <h3 style={{ fontSize: 18, marginBottom: 8 }}>Orders</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14 }}>
+                See new meal orders from residents and mark them as prepared or delivered.
+              </p>
+              <Link to="/dashboard" className="pill small" style={{ display: "inline-flex", marginTop: 10 }}>
+                View orders
+              </Link>
+            </div>
+            <div className="card card-pad">
+              <div className="how-card-icon"><ChefHat size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+              <h3 style={{ fontSize: 18, marginBottom: 8 }}>Your listing</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14 }}>
+                Check how your kitchen appears to residents on the Services page.
+              </p>
+              <Link to="/services" className="pill small ghost" style={{ display: "inline-flex", marginTop: 10 }}>
+                Open services
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* RESIDENT / LOGGED-OUT ONLY: room access guides */}
+      {!isOwner && !isKitchen && (
+        <>
+          {/* How room access works */}
+          <section className="container">
+            <div className="section-title"><h2>How room access works</h2></div>
+            <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16, maxWidth: 680 }}>
+              Your room opens only with your key card. The same scan that locks or unlocks the door also controls the
+              electricity in your room, and the app always shows the current status.
+            </p>
+            <div className="grid cols-4">
+              {ACCESS_STEPS.map((s) => (
+                <div className="card card-pad" key={s.title}>
+                  <div className="how-card-icon"><s.icon size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+                  <h3 style={{ fontSize: 18, marginBottom: 8 }}>{s.title}</h3>
+                  <p style={{ color: "var(--muted)", fontSize: 14 }}>{s.text}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Interactive demo: drag the key onto the reader (demo only) */}
+            <div style={{ marginTop: 28 }}>
+              <h3 style={{ fontSize: 20, marginBottom: 6 }}>Try it: unlock your room</h3>
+              <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 14 }}>
+                Drag the digital key onto the door reader. Do it again to lock.
+              </p>
+              <div className="dd-row">
+                <DoorDemo
+                  locked={door.locked}
+                  onToggle={door.toggle}
+                  live={door.live}
+                  onPhase={setDoorPhase}
+                />
+                <RoomStatusNote locked={door.locked} phase={doorPhase} />
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                marginTop: 16,
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: "1px solid var(--teal)",
+                background: "rgba(0,184,148,0.08)",
+              }}
+            >
+              <Zap size={22} aria-hidden="true" />
+              <span style={{ fontSize: 14 }}>
+                <strong style={{ color: "var(--teal)" }}>No electricity bills.</strong>{" "}
+                Electricity is included in your rent. It is only switched off while your room is locked.
+              </span>
+            </div>
+          </section>
+
+          {/* Detailed guide: how to access, unlock and lock the room */}
+          <section className="container">
+            <div className="section-title"><h2>How to access your room</h2></div>
+            <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16, maxWidth: 680 }}>
+              You need a key to enter your room. You get two: a physical key card and a digital key card. Use whichever is handy.
+            </p>
+            <div className="grid cols-2">
+              {ACCESS_METHODS.map((m) => (
+                <div className="card card-pad" key={m.title}>
+                  <div className="how-card-icon"><m.icon size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+                  <h3 style={{ fontSize: 18, marginBottom: 8 }}>{m.title}</h3>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>
+                    {m.points.map((p, i) => (
+                      <li key={i} style={{ marginBottom: 4 }}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            {keyData && (
+              <div style={{ marginTop: 14 }}>
+                <Link to={`/digital-key/${keyData.id}`} className="pill">Open my digital key card</Link>
+              </div>
+            )}
+          </section>
+
+          <section className="container">
+            <div className="section-title"><h2>How to unlock and lock your room</h2></div>
+            <div className="grid cols-2">
+              <div className="card card-pad">
+                <div className="how-card-icon"><LockKeyholeOpen size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+                <h3 style={{ fontSize: 18, marginBottom: 4 }}>Unlock the room</h3>
+                <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>Door opens and electricity turns on.</p>
+                <ol style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>
+                  {UNLOCK_STEPS.map((s, i) => (
+                    <li key={i} style={{ marginBottom: 4 }}>{s}</li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="card card-pad">
+                <div className="how-card-icon"><LockKeyhole size={24} strokeWidth={1.8} aria-hidden="true" /></div>
+                <h3 style={{ fontSize: 18, marginBottom: 4 }}>Lock the room</h3>
+                <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>Door locks and electricity is disconnected.</p>
+                <ol style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>
+                  {LOCK_STEPS.map((s, i) => (
+                    <li key={i} style={{ marginBottom: 4 }}>{s}</li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            <div className="card card-pad" style={{ marginTop: 16 }}>
+              <h3 style={{ fontSize: 16, marginBottom: 10 }}>Good to know</h3>
+              {ACCESS_HELP.map((h) => (
+                <div key={h.q} style={{ padding: "8px 0", borderTop: "1px solid var(--border)" }}>
+                  <strong style={{ fontSize: 14 }}>{h.q}</strong>
+                  <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>{h.a}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="container">
         <div className="section-title"><h2>Why Roomly</h2></div>

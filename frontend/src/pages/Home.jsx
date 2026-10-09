@@ -332,7 +332,7 @@ export default function Home() {
                 </>
               ) : isOwner ? (
                 <>
-                  <Link to="/dashboard" className="pill">Open my dashboard</Link>
+                  <Link to="/owner/dashboard" className="pill">Open my dashboard</Link>
                   <Link to="/browse" className="pill ghost">View all PGs</Link>
                 </>
               ) : (
@@ -699,7 +699,7 @@ export default function Home() {
             <div className="card card-pad">
               <p style={{ color: "var(--muted)" }}>You haven't listed any PG yet.</p>
               <Link
-                to="/dashboard"
+                to="/owner/add-pg"
                 className="pill small"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 10 }}
               >

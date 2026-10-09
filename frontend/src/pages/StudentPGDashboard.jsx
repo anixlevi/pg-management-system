@@ -24,29 +24,47 @@ const BASIC_ROOM_ITEMS = [
   { id: "bathroom", icon: "🚿", label: "Personal Bathroom", detail: "Private attached bathroom with shower and toilet, only for your use" },
 ];
 
-// Meal sources: own food (self-arranged) + PG Kitchen + cloud kitchens (sample data - replace with API data later)
+// Meal sources: own food (self-arranged) + the registered PG's own kitchen + cloud kitchens (sample data - replace with API data later)
 // Every kitchen has: menu (price + rating per dish), weekly/monthly subscription plans (3 meals a day), and a weekly menu.
 // Cloud kitchens: delivery fee per order, free pickup, delivery included in subscriptions. PG Kitchen: served in the PG dining area.
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const JAIN_BREAKFASTS = ["Moong Dal Chilla", "Thepla & Curd", "Poha (no onion)", "Idli Sambar"];
 
-const MEAL_SOURCES = [
-  { id: "own", icon: "🏠", name: "Own Food", cuisine: "I'll arrange my own meals", rating: null, eta: "Your choice", diets: ["veg", "nonveg", "jain"] },
-  {
-    id: "pgkitchen", icon: "🍽️", name: "PG Kitchen", cuisine: "Home-style meals cooked at your PG", rating: 4.2, eta: "Served in PG dining area", dineIn: true,
-    plans: { weekly: 1400, monthly: 5200 }, diets: ["veg", "nonveg", "jain"],
-    breakfasts: ["Poha", "Aloo Paratha", "Upma", "Idli Sambar"],
-    menu: [
-      { id: "pk1", name: "Veg Thali", price: 70, rating: 4.1, diets: ["veg", "nonveg"] },
-      { id: "pk2", name: "Rajma Chawal", price: 65, rating: 4.0, diets: ["veg", "nonveg"] },
-      { id: "pk3", name: "Kadhi Chawal", price: 60, rating: 4.0, diets: ["veg", "nonveg"] },
-      { id: "pk4", name: "Chicken Curry Meal", price: 110, rating: 4.3, diets: ["nonveg"] },
-      { id: "pk5", name: "Egg Curry Meal", price: 85, rating: 4.2, diets: ["nonveg"] },
-      { id: "pk6", name: "Jain Thali", price: 80, rating: 4.1, diets: ["jain"] },
-      { id: "pk7", name: "Jain Dal Khichdi", price: 70, rating: 4.0, diets: ["jain"] },
-      { id: "pk8", name: "Jain Roti Sabzi", price: 65, rating: 4.0, diets: ["jain"] },
-    ],
+const OWN_FOOD_SOURCE = {
+  id: "own", icon: "🏠", name: "Own Food", cuisine: "I'll arrange my own meals", rating: null, eta: "Your choice", diets: ["veg", "nonveg", "jain"],
+};
+
+// The PG Kitchen is built from the PG the resident actually lives in (so the registered PG's name shows up),
+// not from a fixed demo entry. Optional fields on the PG record override the defaults:
+// pg.kitchen_name, pg.meal_plan_weekly, pg.meal_plan_monthly
+const makePgKitchen = (pg) => ({
+  id: "pgkitchen",
+  icon: "🍽️",
+  name: pg.kitchen_name || `${pg.name} Kitchen`,
+  cuisine: "Home-style meals cooked at your PG",
+  rating: 4.2,
+  eta: "Served in PG dining area",
+  dineIn: true,
+  plans: {
+    weekly: Number(pg.meal_plan_weekly) || 1400,
+    monthly: Number(pg.meal_plan_monthly) || 5200,
   },
+  diets: ["veg", "nonveg", "jain"],
+  breakfasts: ["Poha", "Aloo Paratha", "Upma", "Idli Sambar"],
+  menu: [
+    { id: "pk1", name: "Veg Thali", price: 70, rating: 4.1, diets: ["veg", "nonveg"] },
+    { id: "pk2", name: "Rajma Chawal", price: 65, rating: 4.0, diets: ["veg", "nonveg"] },
+    { id: "pk3", name: "Kadhi Chawal", price: 60, rating: 4.0, diets: ["veg", "nonveg"] },
+    { id: "pk4", name: "Chicken Curry Meal", price: 110, rating: 4.3, diets: ["nonveg"] },
+    { id: "pk5", name: "Egg Curry Meal", price: 85, rating: 4.2, diets: ["nonveg"] },
+    { id: "pk6", name: "Jain Thali", price: 80, rating: 4.1, diets: ["jain"] },
+    { id: "pk7", name: "Jain Dal Khichdi", price: 70, rating: 4.0, diets: ["jain"] },
+    { id: "pk8", name: "Jain Roti Sabzi", price: 65, rating: 4.0, diets: ["jain"] },
+  ],
+});
+
+// Demo cloud kitchens (shown after the PG Kitchen)
+const DEMO_CLOUD_KITCHENS = [
   {
     id: "freshbox", name: "FreshBox Kitchen", cuisine: "North Indian", rating: 4.5, eta: "30 min", deliveryFee: 30, pickupDistance: "1.2 km",
     plans: { weekly: 2100, monthly: 7800 }, diets: ["veg", "nonveg", "jain"],
@@ -99,6 +117,32 @@ const MEAL_SOURCES = [
   },
 ];
 
+// Turns a kitchen coming from the API into the same shape the UI expects (missing fields get safe defaults)
+const normalizeKitchen = (k) => ({
+  id: `api_${k.id}`,
+  name: k.name || "Kitchen",
+  cuisine: k.cuisine || "Cloud kitchen",
+  rating: k.rating ?? null,
+  eta: k.eta || "30 min",
+  deliveryFee: Number(k.delivery_fee ?? k.deliveryFee ?? 30),
+  pickupDistance: k.pickup_distance || k.pickupDistance || "Nearby",
+  plans: {
+    weekly: Number(k.weekly_plan ?? k.plans?.weekly) || 1500,
+    monthly: Number(k.monthly_plan ?? k.plans?.monthly) || 5500,
+  },
+  diets: Array.isArray(k.diets) && k.diets.length ? k.diets : ["veg", "nonveg", "jain"],
+  breakfasts: Array.isArray(k.breakfasts) ? k.breakfasts : [],
+  menu: Array.isArray(k.menu)
+    ? k.menu.map((m, i) => ({
+        id: m.id ? `api_${k.id}_${m.id}` : `api_${k.id}_${i}`,
+        name: m.name,
+        price: Number(m.price) || 0,
+        rating: m.rating ?? 4.0,
+        diets: Array.isArray(m.diets) && m.diets.length ? m.diets : ["veg", "nonveg"],
+      }))
+    : [],
+});
+
 // Builds a 7-day menu (breakfast / lunch / dinner) from the kitchen's dishes for the chosen diet
 const buildWeekMenu = (source, diet) => {
   const dishes = (source.menu || []).filter((m) => m.diets.includes(diet)).map((m) => m.name);
@@ -106,7 +150,7 @@ const buildWeekMenu = (source, diet) => {
   if (dishes.length === 0) return [];
   return DAYS.map((day, i) => ({
     day,
-    breakfast: bf[i % bf.length] || "—",
+    breakfast: bf.length ? bf[i % bf.length] : "—",
     lunch: dishes[i % dishes.length],
     dinner: dishes[(i + 2) % dishes.length],
   }));
@@ -186,6 +230,7 @@ export default function StudentPGDashboard() {
   const [plan, setPlan] = useState("order"); // "order" | "weekly" | "monthly"
   const [planStart, setPlanStart] = useState("");
   const [showWeek, setShowWeek] = useState(false);
+  const [apiKitchens, setApiKitchens] = useState([]); // kitchens registered in the backend (if the endpoint exists)
 
   // Guest stay states
   const [guestForm, setGuestForm] = useState({ name: "", phone: "", date: "", nights: 1, stayType: "same", otherRoom: "std" });
@@ -210,6 +255,14 @@ export default function StudentPGDashboard() {
   const basePrice = pg?.price || 0;
   const addonPrices = ADDON_PRICES; // shared with PGDetails (see pricing.js)
   const kitchenAvailable = basePrice > KITCHEN_MIN_RENT; // kitchen is included only in rooms priced above ₹10,000
+
+  // All meal sources: Own Food, then the resident's registered PG Kitchen, then registered/demo cloud kitchens
+  const mealSources = [
+    OWN_FOOD_SOURCE,
+    ...(pg ? [makePgKitchen(pg)] : []),
+    ...apiKitchens,
+    ...DEMO_CLOUD_KITCHENS,
+  ];
 
   // Monthly total of the selected premium kitchen extras (only for rooms that have a kitchen)
   const kitchenExtrasTotal = () =>
@@ -245,24 +298,34 @@ export default function StudentPGDashboard() {
     } catch (err) {
       console.error("Error loading PG personal details:", err);
     }
+
+    // Registered kitchens from the backend. If this endpoint does not exist yet, we silently keep the demo kitchens.
+    try {
+      const { data: kData } = await api.get("/kitchens");
+      const list = Array.isArray(kData) ? kData : kData.kitchens || [];
+      setApiKitchens(list.map(normalizeKitchen));
+    } catch {
+      setApiKitchens([]);
+    }
   };
 
   useEffect(() => { loadData(); }, [id]);
 
   // Diet badalne par agar selected kitchen us diet ko serve nahi karta to pehla matching kitchen select ho jata hai
   const handleDietChange = (diet) => {
-    const current = MEAL_SOURCES.find((s) => s.id === mealSource);
+    const current = mealSources.find((s) => s.id === mealSource);
     if (current && !current.diets.includes(diet)) {
-      const next = MEAL_SOURCES.find((s) => s.diets.includes(diet));
+      const next = mealSources.find((s) => s.diets.includes(diet));
       setMealSource(next ? next.id : "");
     }
     setFoodPref({ diet, items: [] });
     setCart({});
+    setPlan("order");
     setMealMsg("");
   };
 
-  const availableSources = MEAL_SOURCES.filter((s) => s.diets.includes(foodPref.diet));
-  const selectedSource = MEAL_SOURCES.find((s) => s.id === mealSource);
+  const availableSources = mealSources.filter((s) => s.diets.includes(foodPref.diet));
+  const selectedSource = mealSources.find((s) => s.id === mealSource);
 
   // Menu of the selected kitchen, filtered by the resident's diet
   const kitchenMenu = selectedSource?.menu ? selectedSource.menu.filter((m) => m.diets.includes(foodPref.diet)) : [];
@@ -673,7 +736,7 @@ export default function StudentPGDashboard() {
               </select>
             </div>
 
-            {/* Own food or cloud kitchen selection */}
+            {/* Own food, PG kitchen or cloud kitchen selection */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>How do you want your meals?</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -721,7 +784,7 @@ export default function StudentPGDashboard() {
               </div>
               {selectedSource?.id === "own" && (
                 <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 12 }}>
-                  You'll arrange your own meals. You can switch to a cloud kitchen anytime.
+                  You'll arrange your own meals. You can switch to the PG Kitchen or a cloud kitchen anytime.
                 </p>
               )}
 

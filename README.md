@@ -128,7 +128,7 @@ pg-management-system/
 ├── backend/                 Express API + SQLite
 │   ├── routes/              auth, pgs, ratings, bookings, chatbot
 │   ├── middleware/          JWT auth + role guards
-│   ├── schema/ db.js        Database setup
+│   ├── db.js                Database setup (tables + migrations)
 │   ├── utils/key.js         Digital key + QR generation
 │   ├── seed.js / reset.js   Demo data helpers
 │   └── server.js

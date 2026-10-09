@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS pgs (
   latitude REAL NOT NULL,
   longitude REAL NOT NULL,
   price INTEGER NOT NULL,
+  property_type TEXT NOT NULL DEFAULT 'pg' CHECK(property_type IN ('pg','flat')),
   gender_allowed TEXT DEFAULT 'any',
   wifi INTEGER DEFAULT 0,
   food INTEGER DEFAULT 0,
@@ -44,6 +45,14 @@ CREATE TABLE IF NOT EXISTS pgs (
   total_rooms INTEGER DEFAULT 1,
   available_rooms INTEGER DEFAULT 1,
   image_url TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pg_images (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pg_id INTEGER NOT NULL REFERENCES pgs(id) ON DELETE CASCADE,
+  category TEXT NOT NULL CHECK(category IN ('cover','bedroom','kitchen','bathroom','lobby','garden','exterior','pool')),
+  url TEXT NOT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -70,5 +79,11 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 `);
+
+// Migration: databases created before property_type existed get the column added
+const pgCols = db.prepare("PRAGMA table_info(pgs)").all().map((c) => c.name);
+if (!pgCols.includes("property_type")) {
+  db.exec("ALTER TABLE pgs ADD COLUMN property_type TEXT NOT NULL DEFAULT 'pg'");
+}
 
 export default db;

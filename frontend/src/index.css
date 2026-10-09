@@ -43,8 +43,6 @@
 
   /* Subtle status tones, kept neutral */
   --danger: #3A3A3F;
-  --warning: #6B6B73;
-  --success: #111113;
 
   /* Key card is always dark, in both themes */
   --keycard-bg: #121214;
@@ -84,25 +82,7 @@
   --teal-dark: #B4B4BC;
   --on-accent: #0E0E10;
   --danger: #D4D4D8;
-  --warning: #9A9AA3;
-  --success: #F2F2F3;
   --shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7);
-}
-
-/* Legacy names used by older components. They follow the tokens above.
-   Declared on every theme selector so they re-resolve wherever data-theme is set. */
-:root,
-[data-theme="light"],
-[data-theme="dark"] {
-  --ink: var(--text);
-  --paper: var(--bg);
-  --paper-raised: var(--card-bg);
-  --line: var(--border);
-  --accent: var(--text);
-  --accent-deep: var(--muted);
-  --rust: var(--danger);
-  --pill-bg: var(--teal);
-  --pill-text: var(--on-accent);
 }
 
 /* 3. Base ----------------------------------------------------------------- */
@@ -203,7 +183,6 @@ input, select, textarea { font-family: inherit; }
 .pill.rust { background: var(--danger); color: var(--on-accent); }
 .pill.teal { background: var(--teal); color: var(--on-accent); }
 
-.theme-toggle,
 .theme-toggle-btn {
   display: flex;
   align-items: center;
@@ -218,11 +197,9 @@ input, select, textarea { font-family: inherit; }
   font-size: 15px;
   transition: background-color .15s ease, transform .15s ease;
 }
-.theme-toggle:hover,
 .theme-toggle-btn:hover { background: var(--surface-2); transform: scale(1.05); }
 
 /* 5. Navbar --------------------------------------------------------------- */
-.navbar,
 .navbar-container {
   position: sticky;
   top: 0;
@@ -243,7 +220,6 @@ input, select, textarea { font-family: inherit; }
 }
 
 /* Brand */
-.brand,
 .brand-wrapper {
   display: flex;
   align-items: center;
@@ -254,25 +230,6 @@ input, select, textarea { font-family: inherit; }
   transition: opacity .15s ease;
 }
 .brand-wrapper:hover { opacity: 0.8; }
-
-.brand-mark {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--text);
-}
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--bg);
-  transform: translateY(-50%);
-}
 
 .roomly-brand-svg { filter: grayscale(1); }
 
@@ -1080,14 +1037,6 @@ textarea:focus {
 /* ==========================================================================
    Demo section layout: demo on the left, live info on the right
    ========================================================================== */
-.dd-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 430px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-.dd-info { display: flex; flex-direction: column; gap: 16px; }
-.dd-info h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--text); }
 
 /* Locked vs Unlocked: the active state is highlighted */
 .dd-states { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1128,29 +1077,8 @@ textarea:focus {
   font-size: 12px;
 }
 
-@media (max-width: 860px) {
-  .dd-layout { grid-template-columns: 1fr; }
-}
-
 /* Centered demo + Track button + preview panel */
-.dd-center { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-.dd-track-btn { align-self: center; }
-
-.dd-info-panel {
-  width: 100%;
-  max-width: 760px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  animation: dd-reveal .3s ease;
-}
-.dd-info-panel .dd-facts { grid-column: 1 / -1; justify-content: center; }
-.dd-info-panel h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--text); }
 @keyframes dd-reveal { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-
-@media (max-width: 700px) {
-  .dd-info-panel { grid-template-columns: 1fr; }
-}
 
 /* Track preview (modal) */
 .dd-modal-backdrop {
@@ -1326,8 +1254,6 @@ textarea:focus {
   --on-accent: #ffffff;
 
   --danger: #dc2626;
-  --warning: #d97706;
-  --success: #059669;
 
   --keycard-bg: rgba(15, 23, 42, 0.88);
   --keycard-text: #cbd5e1;
@@ -1352,8 +1278,6 @@ textarea:focus {
   --on-accent: #0b0f17;
 
   --danger: #f87171;
-  --warning: #fbbf24;
-  --success: #34d399;
 
   --keycard-bg: rgba(2, 6, 23, 0.88);
   --keycard-text: #94a3b8;
@@ -1409,7 +1333,6 @@ body::after {
 .map-wrap,
 .dd-stage,
 .dd-note,
-.dd-info-panel,
 .dd-modal,
 .badge-empty {
   background: var(--card-bg);
@@ -1420,7 +1343,6 @@ body::after {
 }
 
 /* Navbar */
-.navbar,
 .navbar-container {
   background: rgba(255, 255, 255, 0.48);
   border-bottom: 1px solid rgba(255, 255, 255, .65);
@@ -1429,18 +1351,12 @@ body::after {
   backdrop-filter: blur(22px) saturate(160%);
 }
 
-[data-theme="dark"] .navbar,
 [data-theme="dark"] .navbar-container {
   background: rgba(8, 11, 18, .58);
   border-bottom-color: rgba(255, 255, 255, .08);
 }
 
 /* Brand */
-.brand-mark {
-  border-radius: 11px;
-  background: linear-gradient(135deg, #111827, #475569);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, .20);
-}
 
 .brand-title {
   letter-spacing: -.045em;
@@ -1510,7 +1426,6 @@ body::after {
 }
 
 /* Theme toggle */
-.theme-toggle,
 .theme-toggle-btn {
   background: rgba(255, 255, 255, .48);
   border-color: rgba(255, 255, 255, .72);
@@ -1657,10 +1572,6 @@ textarea:focus {
 }
 
 /* Table */
-.table-wrap {
-  overflow-x: auto;
-  border-radius: 18px;
-}
 
 .table tbody tr {
   transition: background .18s ease, transform .18s ease;
@@ -1915,9 +1826,7 @@ textarea:focus {
 [data-theme="dark"] li,
 [data-theme="dark"] label,
 [data-theme="dark"] .title,
-[data-theme="dark"] .subtitle,
 [data-theme="dark"] .description,
-[data-theme="dark"] .card-title,
 [data-theme="dark"] .section-title,
 [data-theme="dark"] .hero h1,
 [data-theme="dark"] .hero h2,
@@ -1926,10 +1835,7 @@ textarea:focus {
 }
 
 [data-theme="dark"] .muted,
-[data-theme="dark"] .text-muted,
 [data-theme="dark"] small,
-[data-theme="dark"] .caption,
-[data-theme="dark"] .helper-text,
 [data-theme="dark"] .locality,
 [data-theme="dark"] .switch-link,
 [data-theme="dark"] .dd-caption,
@@ -1946,7 +1852,6 @@ textarea:focus {
 [data-theme="dark"] .brand-title,
 [data-theme="dark"] .nav-links a,
 [data-theme="dark"] .nav-item,
-[data-theme="dark"] .theme-toggle,
 [data-theme="dark"] .theme-toggle-btn {
   color: var(--text);
 }
@@ -1959,7 +1864,6 @@ textarea:focus {
 [data-theme="dark"] .map-wrap,
 [data-theme="dark"] .dd-stage,
 [data-theme="dark"] .dd-note,
-[data-theme="dark"] .dd-info-panel,
 [data-theme="dark"] .dd-modal,
 [data-theme="dark"] .badge-empty {
   color: var(--text);
@@ -1992,12 +1896,6 @@ textarea:focus {
 [data-theme="dark"] textarea::placeholder {
   color: #94a3b8;
   opacity: 1;
-}
-
-[data-theme="dark"] select option,
-[data-theme="dark"] select optgroup {
-  background: #111827;
-  color: #f8fafc;
 }
 
 /* Tables */
@@ -2066,8 +1964,6 @@ textarea:focus {
 }
 
 /* Door demo / modal */
-[data-theme="dark"] .dd-info h4,
-[data-theme="dark"] .dd-info-panel h4,
 [data-theme="dark"] .dd-modal h4,
 [data-theme="dark"] .dd-state strong,
 [data-theme="dark"] .dd-note-main,
@@ -2075,8 +1971,6 @@ textarea:focus {
   color: var(--text);
 }
 
-[data-theme="dark"] .dd-info p,
-[data-theme="dark"] .dd-info-panel p,
 [data-theme="dark"] .dd-modal p {
   color: var(--muted);
 }
@@ -2126,16 +2020,13 @@ textarea:focus {
   color: #f8fafc;
 }
 
-[data-theme="dark"] .keytag .keytag-sub,
 [data-theme="dark"] .keytag small {
   color: #cbd5e1;
 }
 
 /* Icon buttons / SVGs should not inherit black */
 [data-theme="dark"] button,
-[data-theme="dark"] .icon-btn,
-[data-theme="dark"] button svg,
-[data-theme="dark"] .icon-btn svg {
+[data-theme="dark"] button svg {
   color: inherit;
 }
 
@@ -2181,7 +2072,6 @@ textarea:focus {
 [data-theme="dark"] .map-wrap,
 [data-theme="dark"] .dd-stage,
 [data-theme="dark"] .dd-note,
-[data-theme="dark"] .dd-info-panel,
 [data-theme="dark"] .dd-modal,
 [data-theme="dark"] .badge-empty {
   background: rgba(20, 25, 35, 0.72);
@@ -2199,10 +2089,6 @@ textarea:focus {
 [data-theme="dark"] .dd-modal {
   background: rgba(17, 24, 39, .88);
   border-color: rgba(255,255,255,.13);
-}
-
-[data-theme="dark"] .dd-info-panel {
-  background: rgba(17, 24, 39, .72);
 }
 
 [data-theme="dark"] .dd-note {
@@ -2229,13 +2115,11 @@ textarea:focus {
 
 /* ---------- Navbar ---------- */
 
-[data-theme="dark"] .navbar,
 [data-theme="dark"] .navbar-container {
   background: rgba(8,11,18,.78);
   border-bottom-color: rgba(255,255,255,.10);
 }
 
-[data-theme="dark"] .theme-toggle,
 [data-theme="dark"] .theme-toggle-btn {
   background: rgba(255,255,255,.07);
   color: #f8fafc;
@@ -2495,7 +2379,6 @@ textarea:focus {
 [data-theme="dark"] .form-card *,
 [data-theme="dark"] .how-card *,
 [data-theme="dark"] .dd-note *,
-[data-theme="dark"] .dd-info-panel *,
 [data-theme="dark"] .dd-modal * {
   border-color: inherit;
 }
@@ -2505,7 +2388,6 @@ textarea:focus {
 [data-theme="dark"] .form-card p,
 [data-theme="dark"] .how-card p,
 [data-theme="dark"] .dd-note p,
-[data-theme="dark"] .dd-info-panel p,
 [data-theme="dark"] .dd-modal p {
   color: #b6c0d0;
 }
@@ -2587,7 +2469,6 @@ textarea:focus {
 /* Dark glass controls. */
 [data-theme="dark"] .pill.ghost:hover,
 [data-theme="dark"] .pill.secondary:hover,
-[data-theme="dark"] .theme-toggle:hover,
 [data-theme="dark"] .theme-toggle-btn:hover {
   background: rgba(255,255,255,.10) !important;
   color: #ffffff !important;
@@ -2693,11 +2574,8 @@ textarea:focus {
 }
 
 [data-theme="dark"] .card:hover .muted,
-[data-theme="dark"] .card:hover .text-muted,
 [data-theme="dark"] .pg-card:hover .muted,
-[data-theme="dark"] .pg-card:hover .text-muted,
-[data-theme="dark"] .how-card:hover .muted,
-[data-theme="dark"] .how-card:hover .text-muted {
+[data-theme="dark"] .how-card:hover .muted {
   color: #b6c0d0 !important;
 }
 
@@ -2844,8 +2722,7 @@ textarea:focus {
 }
 
 [data-theme="dark"] button:hover svg,
-[data-theme="dark"] a:hover svg,
-[data-theme="dark"] .icon-btn:hover svg {
+[data-theme="dark"] a:hover svg {
   color: currentColor !important;
   fill: currentColor;
 }
@@ -2885,9 +2762,7 @@ textarea:focus {
 
 
 /* ---------- Navbar icon visibility fix ---------- */
-.brand,
 .brand-wrapper,
-.brand-mark,
 .roomly-brand-svg {
   visibility: visible !important;
   opacity: 1 !important;
@@ -3049,7 +2924,6 @@ textarea:focus {
 /* Smooth color transitions */
 button,
 [role="button"],
-.btn,
 .pill {
   transition:
     background-color 0.2s ease,

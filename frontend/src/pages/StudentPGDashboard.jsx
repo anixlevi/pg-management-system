@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api.js";
-import { useAuth } from "../context/AuthContext.jsx";
 import { SinglePGMap } from "../components/MapView.jsx";
-import RatingStars from "../components/RatingStars.jsx";
 import { ADDON_PRICES, KITCHEN_MIN_RENT, GUEST_RATE } from "../components/pricing.js";
 import { BASIC_KITCHEN_APPLIANCES, KITCHEN_EXTRAS } from "../components/kitchenInfo.js";
 
@@ -170,7 +168,6 @@ const getTenureDates = (startDateStr) => {
 
 export default function StudentPGDashboard() {
   const { id } = useParams();
-  const { user } = useAuth();
 
   const [pg, setPg] = useState(null);
   const [booking, setBooking] = useState(null);
@@ -199,7 +196,6 @@ export default function StudentPGDashboard() {
   const [cleaningSlot, setCleaningSlot] = useState({ type: "schedule", date: "", time: "10:00 AM" });
 
   // Complaint state
-  const [complaints, setComplaints] = useState([]);
   const [complaintText, setComplaintText] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -246,25 +242,12 @@ export default function StudentPGDashboard() {
         (b) => String(b.pg_id) === String(id) && (b.status === "accepted" || b.status === "Completed")
       );
       setBooking(match || null);
-
-      const { data: compData } = await api.get(`/pgs/${id}/complaints`);
-      setComplaints(compData.complaints || []);
     } catch (err) {
       console.error("Error loading PG personal details:", err);
     }
   };
 
   useEffect(() => { loadData(); }, [id]);
-
-  const toggleFoodItem = (item) => {
-    setFoodPref((prev) => {
-      const exists = prev.items.includes(item);
-      return {
-        ...prev,
-        items: exists ? prev.items.filter((i) => i !== item) : [...prev.items, item],
-      };
-    });
-  };
 
   // Diet badalne par agar selected kitchen us diet ko serve nahi karta to pehla matching kitchen select ho jata hai
   const handleDietChange = (diet) => {

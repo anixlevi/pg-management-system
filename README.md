@@ -1,11 +1,14 @@
 <div align="center">
 
-# 🏠 Roomly
+#  Roomly
 
 ### PG finder, digital room key & PG organizer, built for private, single-occupancy rooms
 
 *Find a verified PG, see exactly where it is on the map, read honest ratings, and get a digital key the day you move in.*
 
+### 🌐 [Live demo → pg-management-system-flax.vercel.app](https://pg-management-system-flax.vercel.app)
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-000000?logo=vercel&logoColor=white)](https://pg-management-system-flax.vercel.app)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-22.5%2B-339933?logo=nodedotjs&logoColor=white)
@@ -23,6 +26,8 @@
 **Roomly** is a full-stack platform that connects **residents** (students and working professionals) with **PG owners**. Every room on Roomly is for **one person only, no sharing**. Residents discover and book a PG, owners list and manage theirs, and an AI assistant answers questions along the way.
 
 The same React codebase runs as a **website** and as an **Android app** (via Capacitor).
+
+👉 **Try it now:** [pg-management-system-flax.vercel.app](https://pg-management-system-flax.vercel.app)
 
 ---
 
@@ -85,8 +90,9 @@ The same React codebase runs as a **website** and as an **Android app** (via Cap
 These screens are built and working in the UI. Their data is not yet stored on the server (see the [roadmap](#-roadmap)):
 
 - **Door control demo** – lock/unlock the room, with a live activity log and room status
+- **Electricity included** – no separate electricity bills; power is on while the room is unlocked and off while it is locked
 - **Customise your stay** – choose AC or cooler, laundry and kitchen add-ons with live pricing
-- **Personal kitchen** – appliance list for rooms above ₹10,000
+- **Personal kitchen** – included for rooms above ₹10,000, with premium appliances as paid monthly extras
 - **Guest stay requests** – up to 2 nights per guest, priced from the room rent
 - **Cleaning slots** – schedule a cleaning or choose self-cleaning
 - **Security-deposit terms** – one month's base rent, clearly explained
@@ -103,6 +109,7 @@ These screens are built and working in the UI. Their data is not yet stored on t
 | **Database** | SQLite via Node's built-in `node:sqlite` (zero native dependencies) |
 | **AI** | Google Gemini (`@google/genai`) |
 | **Mobile** | Capacitor (Android) |
+| **Hosting** | Frontend on Vercel |
 
 > **Requires Node.js 22.5 or newer** (for `node:sqlite`). Check with `node -v`.
 
@@ -113,6 +120,7 @@ These screens are built and working in the UI. Their data is not yet stored on t
 ```mermaid
 flowchart LR
     A["📱 Android app<br/>(Capacitor)"] -->|HTTPS| T["☁️ Cloudflare Tunnel"]
+    V["🌐 Live site<br/>(Vercel)"] -->|HTTPS| B
     W["💻 Web app<br/>(Vite dev server)"] -->|/api proxy| B
     T --> B["⚙️ Express API<br/>:5000"]
     B --> D[("🗄️ SQLite")]
@@ -142,7 +150,11 @@ pg-management-system/
 
 ---
 
-## ⚡ Getting started
+## ⚡ Getting started (run locally)
+
+Just want to look around? Skip setup and open the **[live demo](https://pg-management-system-flax.vercel.app)**.
+
+To run Roomly on your own machine:
 
 ### 1. Backend
 
@@ -214,6 +226,14 @@ npx cap open android      # then press Run ▶ in Android Studio
 
 ---
 
+## ☁️ Deployment
+
+The frontend is deployed on **Vercel** at [pg-management-system-flax.vercel.app](https://pg-management-system-flax.vercel.app). Pushing to `main` redeploys it automatically.
+
+Set `VITE_API_URL` in the Vercel project settings (Settings → Environment Variables) to the public HTTPS address of your backend, then redeploy.
+
+---
+
 ## 🔌 API overview
 
 | Area | Endpoints |
@@ -230,13 +250,14 @@ Protected routes use a JWT `Bearer` token and are restricted by role (`student` 
 
 ## 🗺️ Roadmap
 
+- [x] Deploy the frontend to Vercel
 - [ ] Persist door lock state, guest requests, cleaning slots and complaints on the server
 - [ ] **Kitchen Partner** accounts (sign-up option exists in the UI; backend support pending)
 - [ ] Image upload for PG photos (currently an image URL)
 - [ ] Allow ratings only from residents with an approved booking at that PG
 - [ ] Pagination for listings and reviews
 - [ ] Push notifications for booking updates
-- [ ] Move the JWT secret to `.env` and deploy to a permanent host
+- [ ] Move the JWT secret to `.env` and deploy the backend to a permanent host
 
 ---
 
